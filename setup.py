@@ -1,0 +1,43 @@
+from setuptools import setup, find_packages
+
+setup(
+    name="earningsiq",
+    version="0.1.0",
+    description="LLM-powered financial earnings report analysis and market reaction prediction",
+    author="Big Data Capstone Project",
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    python_requires=">=3.9",
+    install_requires=[
+        "sec-edgar-downloader>=5.0.2",
+        "yfinance>=0.2.36",
+        "pandas>=2.2.0",
+        "polars>=0.20.7",
+        "dask[complete]>=2024.1.1",
+        "beautifulsoup4>=4.12.3",
+        "lxml>=5.1.0",
+        "pdfplumber>=0.11.0",
+        "llama-index>=0.10.12",
+        "llama-index-embeddings-huggingface>=0.1.4",
+        "chromadb>=0.4.22",
+        "sentence-transformers>=2.3.1",
+        "transformers>=4.38.1",
+        "torch>=2.2.0",
+        "peft>=0.8.2",
+        "datasets>=2.16.1",
+        "scikit-learn>=1.4.0",
+        "rouge-score>=0.1.2",
+        "loguru>=0.7.2",
+        "pydantic>=2.6.1",
+        "pydantic-settings>=2.1.0",
+        "tqdm>=4.66.1",
+    ],
+    extras_require={
+        "dev": [
+            "pytest>=7.4.0",
+            "black>=23.0.0",
+            "flake8>=6.0.0",
+            "mypy>=1.5.0",
+        ],
+    },
+)
