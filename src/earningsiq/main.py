@@ -48,15 +48,11 @@ class EarningsIQ:
         log.info(f"Downloaded {len(filing_index)} filings")
         return filing_index
 
-    def process_documents(self, filing_index: pd.DataFrame, use_parallel: bool = True):
+    def process_documents(self, filing_index: pd.DataFrame):
         log.info("Processing documents")
 
         processor = DocumentProcessor()
-
-        if use_parallel:
-            chunked_docs = processor.process_batch_parallel(filing_index, n_partitions=4)
-        else:
-            chunked_docs = processor.process_batch(filing_index)
+        chunked_docs = processor.process_batch(filing_index)
 
         log.info(f"Processed {len(chunked_docs)} document chunks")
         return chunked_docs
@@ -146,7 +142,7 @@ def run_data_pipeline(sample_only: bool = True):
 
     filing_index = system.download_data(tickers, use_sample=True)
 
-    chunked_docs = system.process_documents(filing_index, use_parallel=False)
+    chunked_docs = system.process_documents(filing_index)
 
     system.build_vector_index(chunked_docs)
 

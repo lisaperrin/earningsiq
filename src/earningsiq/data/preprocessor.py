@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import re
 from bs4 import BeautifulSoup
 import pandas as pd
-import polars as pl
 from ..config import settings
 from ..utils.logger import log
 
@@ -224,35 +223,4 @@ class DocumentProcessor:
         df.to_parquet(output_path, index=False)
 
         log.info(f"Processed {len(df)} chunks from {len(filing_index)} filings")
-        return df
-
-    def process_batch_parallel(self, filing_index: pd.DataFrame, n_partitions: int = 4) -> pd.DataFrame:
-        import dask.dataframe as dd
-        from dask.diagnostics import ProgressBar
-
-        ddf = dd.from_pandas(filing_index, npartitions=n_partitions)
-
-        def process_row(row):
-            try:
-                file_path = Path(row["file_path"])
-                chunks = self.process_filing(
-                    file_path,
-                    row["ticker"],
-                    row["filing_type"],
-                    str(row["filing_date"])
-                )
-                return pd.DataFrame(chunks)
-            except Exception as e:
-                log.error(f"Error processing {row['ticker']}: {e}")
-                return pd.DataFrame()
-
-        with ProgressBar():
-            results = ddf.apply(process_row, axis=1, meta=pd.DataFrame()).compute()
-
-        df = pd.concat([r for r in results if not r.empty], ignore_index=True)
-
-        output_path = settings.processed_data_dir / "chunked_documents.parquet"
-        df.to_parquet(output_path, index=False)
-
-        log.info(f"Processed {len(df)} chunks from {len(filing_index)} filings in parallel")
         return df

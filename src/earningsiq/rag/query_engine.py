@@ -1,20 +1,9 @@
 from typing import Optional, List, Dict
-from pathlib import Path
 import torch
 import psutil
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-import pandas as pd
 from ..config import settings
 from ..utils.logger import log
-
-try:
-    from llama_index.core import Settings
-    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-    LLAMA_INDEX_AVAILABLE = True
-except ImportError:
-    LLAMA_INDEX_AVAILABLE = False
-    Settings = None
-    HuggingFaceEmbedding = None
 
 
 def auto_select_model() -> tuple[str, int]:
@@ -222,20 +211,6 @@ Answer:"""
         self.vector_store = vector_store
         self.llm_manager = LLMManager(llm_model_name)
 
-        self._setup_llama_index()
-
-    def _setup_llama_index(self):
-        if LLAMA_INDEX_AVAILABLE and Settings is not None:
-            try:
-                Settings.embed_model = HuggingFaceEmbedding(
-                    model_name=settings.embedding_model
-                )
-                Settings.chunk_size = settings.chunk_size
-                Settings.chunk_overlap = settings.chunk_overlap
-            except Exception as e:
-                log.warning(f"Could not configure llama-index settings: {e}")
-        else:
-            log.info("LlamaIndex not available, skipping configuration")
 
     def query(
         self,
