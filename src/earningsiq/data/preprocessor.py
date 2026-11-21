@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import Optional
 from dataclasses import dataclass
 import re
-from bs4 import BeautifulSoup
+import warnings
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 import pandas as pd
 from ..config import settings
 from ..utils.logger import log
@@ -18,49 +18,108 @@ class Document:
     metadata: dict
 
 
+# Separators that may sit between an item number and its title once the HTML
+# has been flattened to text ("Item 7. | Management's ...").
+_SEP = r"[\s|.:\-–—]*"
+
+
+def _heading(item: str, title: str) -> re.Pattern:
+    """Pattern for a section heading: the item number followed by its title.
+
+    Requiring the title keeps cross-references such as "see Part II, Item 7"
+    from being mistaken for the start of a section.
+    """
+    return re.compile(rf"Item\s*{item}{_SEP}{title}", re.IGNORECASE)
+
+
 class SecFilingParser:
-    SECTION_PATTERNS = {
-        "10-Q": {
-            "MD&A": r"(?:ITEM\s*[2]\.|Management.*Discussion.*Analysis)",
-            "RISK_FACTORS": r"(?:ITEM\s*[1]A\.|Risk\s*Factors)",
-            "FINANCIAL_STATEMENTS": r"(?:ITEM\s*[1]\.|Financial\s*Statements)",
-        },
+    # section name -> (start heading, end heading). The end heading is the
+    # item that follows the section in the form's fixed order.
+    SECTION_HEADINGS = {
         "10-K": {
-            "MD&A": r"(?:ITEM\s*[7]\.|Management.*Discussion.*Analysis)",
-            "RISK_FACTORS": r"(?:ITEM\s*[1]A\.|Risk\s*Factors)",
-            "BUSINESS": r"(?:ITEM\s*[1]\.|Description.*Business)",
-            "FINANCIAL_STATEMENTS": r"(?:ITEM\s*[8]\.|Financial\s*Statements)",
-        }
+            "BUSINESS": (
+                _heading("1", r"Business"),
+                _heading("1A", r"Risk\s+Factors"),
+            ),
+            "RISK_FACTORS": (
+                _heading("1A", r"Risk\s+Factors"),
+                _heading("(?:1B|2)", r"(?:Unresolved\s+Staff|Properties)"),
+            ),
+            "MD&A": (
+                _heading("7", r"Management\W{0,3}s\s+Discussion"),
+                _heading("(?:7A|8)", r"(?:Quantitative\s+and\s+Qualitative|Financial\s+Statements)"),
+            ),
+            "FINANCIAL_STATEMENTS": (
+                _heading("8", r"Financial\s+Statements"),
+                _heading("9", r"Changes\s+in\s+and\s+Disagreements"),
+            ),
+        },
+        "10-Q": {
+            "FINANCIAL_STATEMENTS": (
+                _heading("1", r"(?:Condensed\s+)?(?:Consolidated\s+)?Financial\s+Statements"),
+                _heading("2", r"Management\W{0,3}s\s+Discussion"),
+            ),
+            "MD&A": (
+                _heading("2", r"Management\W{0,3}s\s+Discussion"),
+                _heading("(?:3|4)", r"(?:Quantitative\s+and\s+Qualitative|Controls\s+and\s+Procedures)"),
+            ),
+            "RISK_FACTORS": (
+                _heading("1A", r"Risk\s+Factors"),
+                _heading("(?:2|6)", r"(?:Unregistered\s+Sales|Exhibits)"),
+            ),
+        },
     }
 
-    def __init__(self):
-        pass
+    # Table-of-contents entries match the heading patterns too, but the span
+    # up to the next entry is only a line long.
+    MIN_SECTION_CHARS = 500
+
+    BLOCK_TAGS = ['p', 'div', 'li', 'tr', 'td', 'th', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+
+    def _read_main_document(self, file_path: Path) -> bytes:
+        """Return the HTML of the 10-K/10-Q itself, without exhibits.
+
+        full-submission.txt bundles every exhibit and XBRL file of the filing.
+        sec-edgar-downloader stores the main document next to it; if it is
+        missing, fall back to the first <TEXT> block of the submission.
+        """
+        primary = file_path.with_name("primary-document.html")
+        if primary.exists():
+            return primary.read_bytes()
+
+        raw = file_path.read_bytes()
+        match = re.search(rb"<TEXT>(.*?)</TEXT>", raw, re.DOTALL)
+        return match.group(1) if match else raw
 
     def extract_text_from_filing(self, file_path: Path) -> str:
         try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
+            with warnings.catch_warnings():
+                # inline-XBRL filings declare themselves as XML but are HTML
+                warnings.simplefilter("ignore", XMLParsedAsHTMLWarning)
+                soup = BeautifulSoup(self._read_main_document(file_path), 'lxml')
 
-            soup = BeautifulSoup(content, 'lxml')
-            for tag in soup(['script', 'style']):
+            # ix:header holds hidden inline-XBRL context definitions, not prose
+            for tag in soup(['script', 'style', 'ix:header']):
                 tag.decompose()
 
-            table_texts = []
+            # Put whitespace after block elements only. Filings often split a
+            # single word across inline <span>/<font> tags ("RIS" + "K FACTORS"),
+            # so joining every text node with a space would break words apart.
+            for tag in soup.find_all(self.BLOCK_TAGS):
+                tag.append(' ')
+            for br in soup.find_all('br'):
+                br.replace_with(' ')
+
             for table in soup.find_all('table'):
                 rows = []
                 for tr in table.find_all('tr'):
-                    cells = [td.get_text(strip=True) for td in tr.find_all(['td', 'th'])]
+                    cells = [' '.join(td.get_text().split()) for td in tr.find_all(['td', 'th'])]
+                    cells = [cell for cell in cells if cell]
                     if cells:
                         rows.append(' | '.join(cells))
-                if rows:
-                    table_texts.append('\n'.join(rows))
-                table.replace_with(soup.new_string('\n' + '\n'.join(rows) + '\n' if rows else ''))
+                table.replace_with(soup.new_string(' ' + ' '.join(rows) + ' '))
 
-            text = soup.get_text(separator=' ', strip=True)
-            text = re.sub(r'\s+', ' ', text)
-            text = re.sub(r'\n+', '\n', text)
-
-            return text
+            return re.sub(r'\s+', ' ', soup.get_text()).strip()
 
         except Exception as e:
             log.error(f"Failed to extract text from {file_path}: {e}")
@@ -68,54 +127,20 @@ class SecFilingParser:
 
     def extract_sections(self, text: str, filing_type: str) -> dict[str, str]:
         sections = {}
-        patterns = self.SECTION_PATTERNS.get(filing_type, {})
 
-        toc_skip_threshold = 10000
+        for section_name, (start_re, end_re) in self.SECTION_HEADINGS.get(filing_type, {}).items():
+            ends = [m.start() for m in end_re.finditer(text)]
+            span = None
 
-        for section_name, pattern in patterns.items():
-            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            # The same heading appears in the table of contents and in the
+            # body. Keep the last occurrence that is followed by real content.
+            for start in (m.start() for m in start_re.finditer(text)):
+                end = next((e for e in ends if e > start), None)
+                if end is not None and end - start >= self.MIN_SECTION_CHARS:
+                    span = (start, end)
 
-            if matches:
-                best_match = None
-                best_content_length = 0
-
-                for match in matches:
-                    start_pos = match.start()
-
-                    if start_pos < toc_skip_threshold and len(matches) > 1:
-                        continue
-
-                    next_item_pattern = r"ITEM\s*\d+[A-Z]?\."
-                    search_start = start_pos + 100
-                    next_matches = list(re.finditer(next_item_pattern, text[search_start:], re.IGNORECASE))
-
-                    if next_matches:
-                        end_pos = search_start + next_matches[0].start()
-                    else:
-                        end_pos = min(start_pos + 100000, len(text))
-
-                    content_length = end_pos - start_pos
-
-                    if content_length > best_content_length:
-                        best_content_length = content_length
-                        best_match = (start_pos, end_pos)
-
-                if best_match is None and matches:
-                    start_pos = matches[0].start()
-                    next_item_pattern = r"ITEM\s*\d+[A-Z]?\."
-                    search_start = start_pos + 100
-                    next_matches = list(re.finditer(next_item_pattern, text[search_start:], re.IGNORECASE))
-                    if next_matches:
-                        end_pos = search_start + next_matches[0].start()
-                    else:
-                        end_pos = min(start_pos + 100000, len(text))
-                    best_match = (start_pos, end_pos)
-
-                if best_match:
-                    start_pos, end_pos = best_match
-                    section_text = text[start_pos:end_pos]
-                    if len(section_text) > 500:
-                        sections[section_name] = section_text[:50000]
+            if span:
+                sections[section_name] = text[span[0]:span[1]].strip()
 
         return sections
 
@@ -125,40 +150,82 @@ class SecFilingParser:
             return []
 
         sections = self.extract_sections(text, filing_type)
-        documents = []
+        if not sections:
+            log.warning(f"No sections found in {file_path}")
 
-        for section_name, section_text in sections.items():
-            if len(section_text.strip()) > 100:
-                doc = Document(
-                    ticker=ticker,
-                    filing_type=filing_type,
-                    filing_date=filing_date,
-                    section=section_name,
-                    text=section_text,
-                    metadata={
-                        "file_path": str(file_path),
-                        "text_length": len(section_text),
-                    }
-                )
-                documents.append(doc)
-
-        return documents
+        return [
+            Document(
+                ticker=ticker,
+                filing_type=filing_type,
+                filing_date=filing_date,
+                section=section_name,
+                text=section_text,
+                metadata={
+                    "file_path": str(file_path),
+                    "text_length": len(section_text),
+                },
+            )
+            for section_name, section_text in sections.items()
+        ]
 
 
 class DocumentChunker:
-    def __init__(self, chunk_size: int = None, chunk_overlap: int = None):
+    """Splits text into chunks of at most `chunk_size` embedding-model tokens.
+
+    Sizes are measured with the embedding model's own tokenizer so that no
+    chunk exceeds the model's input limit; anything beyond that limit would be
+    cut off silently when the chunk is embedded.
+    """
+
+    SPECIAL_TOKENS = 2  # [CLS] and [SEP] are added at embedding time
+
+    def __init__(self, chunk_size: int = None, chunk_overlap: int = None, tokenizer=None):
         self.chunk_size = chunk_size or settings.chunk_size
         self.chunk_overlap = chunk_overlap or settings.chunk_overlap
+        self._tokenizer = tokenizer
+
+    @property
+    def tokenizer(self):
+        if self._tokenizer is None:
+            from transformers import AutoTokenizer
+            self._tokenizer = AutoTokenizer.from_pretrained(settings.embedding_model)
+        return self._tokenizer
 
     def chunk_text(self, text: str) -> list[str]:
-        words = text.split()
-        chunks = []
+        encoding = self.tokenizer(
+            text,
+            add_special_tokens=False,
+            return_offsets_mapping=True,
+            truncation=False,
+            verbose=False,
+        )
+        offsets = encoding["offset_mapping"]
+        word_ids = encoding.word_ids()
+        n_tokens = len(offsets)
 
-        for i in range(0, len(words), self.chunk_size - self.chunk_overlap):
-            chunk_words = words[i:i + self.chunk_size]
-            chunk_text = ' '.join(chunk_words)
-            if chunk_text.strip():
-                chunks.append(chunk_text)
+        def word_start(index: int, lower_bound: int) -> int:
+            """Move a cut point back so it does not fall inside a word."""
+            cut = index
+            while cut > lower_bound and word_ids[cut] == word_ids[cut - 1]:
+                cut -= 1
+            return cut if cut > lower_bound else index
+
+        window = self.chunk_size - self.SPECIAL_TOKENS
+        chunks = []
+        start = 0
+
+        while start < n_tokens:
+            end = min(start + window, n_tokens)
+            if end < n_tokens:
+                end = word_start(end, start)
+
+            chunk = text[offsets[start][0]:offsets[end - 1][1]].strip()
+            if chunk:
+                chunks.append(chunk)
+
+            if end >= n_tokens:
+                break
+            start = word_start(max(end - self.chunk_overlap, start + 1), start)
 
         return chunks
 
@@ -184,6 +251,21 @@ class DocumentChunker:
         return chunked_docs
 
 
+def resolve_filing_path(stored_path: str) -> Path:
+    """Locate a filing listed in the filing index.
+
+    The index stores paths relative to the raw data directory. Indexes written
+    by earlier versions hold absolute paths, which break as soon as the project
+    folder is moved, so those are re-rooted at the current raw data directory.
+    """
+    path = Path(stored_path)
+    if not path.is_absolute():
+        return settings.raw_data_dir / path
+    if not path.exists() and "sec-edgar-filings" in path.parts:
+        return settings.raw_data_dir.joinpath(*path.parts[path.parts.index("sec-edgar-filings"):])
+    return path
+
+
 class DocumentProcessor:
     def __init__(self):
         self.parser = SecFilingParser()
@@ -204,7 +286,7 @@ class DocumentProcessor:
 
         for _, row in filing_index.iterrows():
             try:
-                file_path = Path(row["file_path"])
+                file_path = resolve_filing_path(row["file_path"])
                 chunks = self.process_filing(
                     file_path,
                     row["ticker"],

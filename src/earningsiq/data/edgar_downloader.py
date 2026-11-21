@@ -107,7 +107,8 @@ class EdgarDownloader:
                         "ticker": ticker,
                         "filing_type": filing_type,
                         "filing_date": filing_date,
-                        "file_path": str(path)
+                        # relative, so the index survives moving the project
+                        "file_path": path.relative_to(self.output_dir).as_posix()
                     })
 
         df = pd.DataFrame(records)
