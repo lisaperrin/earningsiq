@@ -134,6 +134,7 @@ class PriceDataFetcher:
         for ticker in filing_index["ticker"].unique():
             try:
                 ticker_filings = filing_index[filing_index["ticker"] == ticker]
+                count_before = len(reactions)
 
                 for _, row in ticker_filings.iterrows():
                     filing_date = pd.to_datetime(row["filing_date"])
@@ -143,7 +144,9 @@ class PriceDataFetcher:
                     if reaction:
                         reactions.append({
                             "ticker": reaction.ticker,
-                            "earnings_date": reaction.earnings_date,
+                            # Date the 10-K/10-Q was filed. This is not the
+                            # earnings announcement, which usually comes earlier.
+                            "filing_date": reaction.earnings_date,
                             "filing_type": row["filing_type"],
                             "pre_price": reaction.pre_price,
                             "post_price": reaction.post_price,
@@ -152,7 +155,7 @@ class PriceDataFetcher:
                             "direction": reaction.direction,
                         })
 
-                log.info(f"Calculated price reactions for {ticker}: {len(reactions)} data points")
+                log.info(f"Calculated price reactions for {ticker}: {len(reactions) - count_before} data points")
 
             except Exception as e:
                 log.error(f"Failed to process {ticker}: {e}")

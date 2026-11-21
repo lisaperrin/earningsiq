@@ -17,7 +17,6 @@ def main():
         return
 
     filing_index = pd.read_parquet(filing_index_path)
-    filing_index = filing_index.head(10)
 
     log.info(f"Analyzing price reactions for {len(filing_index)} filings")
 
@@ -27,14 +26,18 @@ def main():
     log.info(f"Built price reaction dataset: {len(price_reactions)} entries")
 
     if not price_reactions.empty:
-        print("\nPrice Reactions Summary:")
+        print("\nPrice change around each filing date (mean close of the 2 trading days")
+        print("from the filing date vs. the 2 trading days before it):")
         print(price_reactions.describe())
 
+        print("\nBy ticker:")
+        print(price_reactions.groupby("ticker")["price_change_pct"].agg(["count", "mean", "std"]).round(2))
+
         print("\nTop 5 Positive Reactions:")
-        print(price_reactions.nlargest(5, 'price_change_pct')[['ticker', 'earnings_date', 'price_change_pct']])
+        print(price_reactions.nlargest(5, 'price_change_pct')[['ticker', 'filing_date', 'price_change_pct']])
 
         print("\nTop 5 Negative Reactions:")
-        print(price_reactions.nsmallest(5, 'price_change_pct')[['ticker', 'earnings_date', 'price_change_pct']])
+        print(price_reactions.nsmallest(5, 'price_change_pct')[['ticker', 'filing_date', 'price_change_pct']])
 
 
 if __name__ == "__main__":

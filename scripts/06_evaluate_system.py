@@ -7,51 +7,43 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from earningsiq.main import EarningsIQ
-from earningsiq.evaluation.metrics import (
-    ComprehensiveEvaluator,
-    RetrievalEvaluator,
-    BaselineComparator,
-    PerformanceMetrics,
-)
+from earningsiq.evaluation.metrics import ComprehensiveEvaluator
 from earningsiq.utils.logger import log
 
 
-# Test queries with expected reference answers (ground truth)
+# Test queries with hand-written reference answers. Five cases are a smoke
+# test of the pipeline, not a benchmark: the scores show whether answers are
+# on topic, they do not measure accuracy.
 TEST_CASES = [
     {
         "query": "What were Apple's key financial results and how did net sales perform?",
         "ticker": "AAPL",
         "year": 2024,
         "reference": "Apple reported net sales with iPhone increasing, Services growing, and Mac showing growth. Products gross margin improved. The company saw varying performance across segments with some declines in iPad and Wearables.",
-        "expected_entities": ["revenue", "margin", "profit"],
     },
     {
         "query": "What are NVIDIA's main risk factors?",
         "ticker": "NVDA",
         "year": 2024,
         "reference": "NVIDIA faces supply chain risks including long manufacturing lead times and uncertain component availability. Competition from established players poses challenges. Regulatory risks from complex global laws and export controls to certain countries. Cybersecurity vulnerabilities and data privacy concerns. Geopolitical tensions affecting operations.",
-        "expected_entities": ["risk"],
     },
     {
         "query": "How did Microsoft's cloud business perform?",
         "ticker": "MSFT",
         "year": 2024,
         "reference": "Microsoft's Intelligent Cloud segment showed revenue growth driven by Azure and other cloud services. The company continues to invest in AI capabilities and cloud infrastructure.",
-        "expected_entities": ["revenue", "growth"],
     },
     {
         "query": "What were Tesla's key operational highlights?",
         "ticker": "TSLA",
         "year": 2024,
         "reference": "Tesla reported on vehicle deliveries, production capacity, and energy business performance. The company discussed manufacturing efficiency and expansion plans.",
-        "expected_entities": ["revenue", "margin"],
     },
     {
         "query": "What risks does Google face from competition?",
         "ticker": "GOOGL",
         "year": 2024,
         "reference": "Google faces competition in search, advertising, cloud computing, and AI. The company must maintain innovation while addressing regulatory scrutiny and antitrust concerns.",
-        "expected_entities": ["risk"],
     },
 ]
 
@@ -68,9 +60,6 @@ def run_evaluation(system: EarningsIQ, num_cases: int = None):
     print("=" * 80)
 
     evaluator = ComprehensiveEvaluator()
-    retrieval_eval = RetrievalEvaluator()
-    baseline_comp = BaselineComparator()
-    perf_metrics = PerformanceMetrics()
 
     predictions = []
     references = []
@@ -101,8 +90,6 @@ def run_evaluation(system: EarningsIQ, num_cases: int = None):
         query_times.append(query_time)
         retrieved_doc_counts.append(len(sources))
 
-        perf_metrics.record_query_time(f"query_{i}", query_time, "llm_system")
-
         print(f"    Time: {query_time:.2f}s | Docs: {len(sources)} | Answer length: {len(answer)} chars")
 
     # Calculate metrics
@@ -124,7 +111,7 @@ def run_evaluation(system: EarningsIQ, num_cases: int = None):
     # Print entity extraction scores
     entity_result = eval_results.get("entity_extraction")
     if entity_result and entity_result.details:
-        print("\n[Entity Extraction - Financial Terms]")
+        print("\n[Financial Keyword Overlap - same terms in answer and reference]")
         print(f"    Precision: {entity_result.details.get('precision', 0):.4f}")
         print(f"    Recall:    {entity_result.details.get('recall', 0):.4f}")
         print(f"    F1 Score:  {entity_result.details.get('f1', 0):.4f}")
@@ -136,8 +123,8 @@ def run_evaluation(system: EarningsIQ, num_cases: int = None):
     print(f"    Max Query Time:    {max(query_times):.2f}s")
     print(f"    Avg Docs Retrieved: {sum(retrieved_doc_counts) / len(retrieved_doc_counts):.1f}")
 
-    # Retrieval quality (based on whether answers contain expected info)
-    print("\n[Retrieval Quality]")
+    # Sanity check only: counts answers that are not empty or a refusal
+    print("\n[Answer Sanity Check]")
     answers_with_content = sum(1 for p in predictions if len(p) > 100 and "context" not in p.lower()[:50])
     print(f"    Queries with substantive answers: {answers_with_content}/{len(predictions)}")
 
@@ -155,7 +142,7 @@ def run_evaluation(system: EarningsIQ, num_cases: int = None):
     }
 
     print(f"\n    ROUGE-L Score:           {summary['rouge_l']:.4f}")
-    print(f"    Entity Extraction F1:    {summary['entity_f1']:.4f}")
+    print(f"    Keyword Overlap F1:      {summary['entity_f1']:.4f}")
     print(f"    Avg Query Time:          {summary['avg_query_time_s']:.2f}s")
     print(f"    Avg Docs Retrieved:      {summary['avg_docs_retrieved']:.1f}")
     print(f"    Substantive Answer Rate: {summary['substantive_answer_rate']:.1%}")

@@ -45,6 +45,12 @@ class ROUGEEvaluator:
 
 
 class EntityExtractionEvaluator:
+    """Compares which financial terms appear in a prediction and its reference.
+
+    This is a keyword-overlap score over the fixed term list below, not named
+    entity recognition: it does not check that the reported values agree.
+    """
+
     FINANCIAL_ENTITIES = [
         'revenue', 'earnings', 'eps', 'ebitda', 'margin', 'profit',
         'guidance', 'forecast', 'outlook', 'cash flow'
@@ -304,7 +310,7 @@ class ComprehensiveEvaluator:
 
         entity_scores = self.entity_eval.evaluate(predictions, references)
         results['entity_extraction'] = EvaluationResult(
-            metric_name='Entity Extraction F1',
+            metric_name='Financial Keyword Overlap F1',
             score=entity_scores.get('f1', 0.0),
             details=entity_scores
         )
