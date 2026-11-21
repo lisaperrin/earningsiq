@@ -24,7 +24,6 @@ class Settings(BaseSettings):
     chunk_overlap: int = 100
 
     llm_model: str = "auto"
-    llm_context_window: int = 2048
     llm_max_tokens: int = 512
     llm_temperature: float = 0.1
 

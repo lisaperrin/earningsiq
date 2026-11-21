@@ -7,7 +7,12 @@ from ..utils.logger import log
 
 
 def auto_select_model() -> tuple[str, int]:
-    """Auto-select best model based on available RAM and GPU.
+    """Pick the default model for the available RAM and GPU memory.
+
+    Qwen 1.5B is preferred whenever it fits: its 32k context window holds all
+    retrieved chunks, which matters more for RAG than raw model size.
+    TinyLlama is the low-memory fallback. Phi-3 and Mistral are never picked
+    automatically; select them explicitly via LLM_MODEL.
 
     Returns:
         tuple: (model_name, context_window)
@@ -25,9 +30,8 @@ def auto_select_model() -> tuple[str, int]:
     log.info(f"System: {ram_gb:.1f}GB RAM, GPU: {has_gpu} ({gpu_mem_gb:.1f}GB VRAM)")
 
     models = [
+        # (model, min RAM in GB, min VRAM in GB, context window)
         ("Qwen/Qwen2.5-1.5B-Instruct", 6, 3, 32768),
-        ("mistralai/Mistral-7B-Instruct-v0.3", 24, 14, 8192),
-        ("microsoft/Phi-3-mini-4k-instruct", 12, 8, 4096),
         ("TinyLlama/TinyLlama-1.1B-Chat-v1.0", 4, 2, 2048),
     ]
 
@@ -82,8 +86,7 @@ class LLMManager:
             log.info(f"This may take several minutes on first run (downloading model)...")
 
             self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                trust_remote_code=True
+                self.model_name
             )
 
             if self.tokenizer.pad_token is None:
@@ -95,7 +98,6 @@ class LLMManager:
                 self.model_name,
                 torch_dtype=torch.float16 if use_gpu else torch.float32,
                 device_map="auto" if use_gpu else "cpu",
-                trust_remote_code=True,
                 low_cpu_mem_usage=True
             )
 
@@ -103,8 +105,8 @@ class LLMManager:
                 "text-generation",
                 model=self.model,
                 tokenizer=self.tokenizer,
-                max_new_tokens=512,
-                temperature=0.1,
+                max_new_tokens=settings.llm_max_tokens,
+                temperature=settings.llm_temperature,
                 do_sample=True,
                 top_p=0.95,
                 pad_token_id=self.tokenizer.pad_token_id,
@@ -137,8 +139,9 @@ class LLMManager:
                         "text-generation",
                         model=self.model,
                         tokenizer=self.tokenizer,
-                        max_new_tokens=512,
-                        temperature=0.1,
+                        max_new_tokens=settings.llm_max_tokens,
+                        temperature=settings.llm_temperature,
+                        do_sample=True,
                         pad_token_id=self.tokenizer.pad_token_id,
                     )
 
@@ -150,7 +153,7 @@ class LLMManager:
             else:
                 self.pipeline = None
 
-    def generate(self, prompt: str, max_length: int = 512) -> str:
+    def generate(self, prompt: str, max_length: Optional[int] = None) -> str:
         if self.pipeline is None:
             log.error("LLM not loaded")
             return "Error: LLM model not available"
@@ -169,7 +172,7 @@ class LLMManager:
 
             response = self.pipeline(
                 formatted_prompt,
-                max_new_tokens=max_length,
+                max_new_tokens=max_length or settings.llm_max_tokens,
                 pad_token_id=self.tokenizer.eos_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
             )
@@ -207,10 +210,49 @@ Instructions:
 
 Answer:"""
 
+    # Allowance for the role markers the chat template wraps around the prompt
+    CHAT_TEMPLATE_TOKENS = 64
+
     def __init__(self, vector_store, llm_model_name: Optional[str] = None):
         self.vector_store = vector_store
         self.llm_manager = LLMManager(llm_model_name)
 
+    def _fit_to_context_window(self, question: str, context_parts: List[str]) -> int:
+        """Return how many retrieved chunks (best match first) fit into the prompt.
+
+        Retrieval returns up to top_k chunks of ~512 tokens each, which is more
+        than the smaller models can read. Without this check the prompt would
+        overflow the context window and the model would fail or answer from a
+        truncated prompt.
+        """
+        tokenizer = self.llm_manager.tokenizer
+        if tokenizer is None:
+            return len(context_parts)
+
+        def n_tokens(text: str) -> int:
+            return len(tokenizer(text, add_special_tokens=False)["input_ids"])
+
+        budget = (
+            self.llm_manager.context_window
+            - settings.llm_max_tokens
+            - self.CHAT_TEMPLATE_TOKENS
+            - n_tokens(self.FINANCIAL_QA_TEMPLATE.format(context="", question=question))
+        )
+
+        kept = 0
+        for part in context_parts:
+            cost = n_tokens(part) + 2  # separator between chunks
+            if cost > budget:
+                break
+            budget -= cost
+            kept += 1
+
+        if kept < len(context_parts):
+            log.warning(
+                f"Using {kept} of {len(context_parts)} retrieved chunks: "
+                f"{self.llm_manager.model_name} has a {self.llm_manager.context_window}-token context window"
+            )
+        return kept
 
     def query(
         self,
@@ -276,6 +318,10 @@ Answer:"""
                     "metadata": metadata,
                     "distance": results["distances"][0][i]
                 })
+
+        kept = self._fit_to_context_window(question, context_parts)
+        context_parts = context_parts[:kept]
+        source_docs = source_docs[:kept]
 
         context = "\n\n".join(context_parts)
 
