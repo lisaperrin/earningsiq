@@ -2,8 +2,9 @@
 07_finetune_model.py - Fine-tune model with LoRA and compare before/after performance
 
 Demonstrates:
-- Objective 3: Advanced Techniques (PEFT/LoRA, 4-bit quantization)
-- Objective 5: Quantifiable Impact (baseline vs fine-tuned comparison)
+- PEFT/LoRA fine-tuning on a financial Q&A dataset (4-bit quantization
+  when bitsandbytes and a CUDA GPU are available)
+- Before/after comparison with ROUGE on held-out examples
 
 Usage:
     python scripts/07_finetune_model.py --quick     # Fast demo (50 samples, 1 epoch)
@@ -22,6 +23,7 @@ from earningsiq.models.fine_tuning import (
     FinancialDatasetPreparator,
     LoRAFineTuner,
 )
+from earningsiq.config import settings
 from earningsiq.utils.logger import log
 from rouge_score import rouge_scorer
 
@@ -128,14 +130,12 @@ def main():
         num_samples = args.samples or 500
         num_epochs = args.epochs or 3
 
-    # Check if bitsandbytes is available and working
-    bnb_available = False
-    try:
-        import bitsandbytes
-        # Test if it actually works (catches Windows CUDA issues)
-        bnb_available = True
-    except (ImportError, RuntimeError, Exception):
-        bnb_available = False
+    finetuner = LoRAFineTuner(
+        model_name=args.model,
+        use_4bit=True
+    )
+    quantization = "4-bit (NF4)" if finetuner.use_4bit else "none (standard precision)"
+    lora_params = f"r={settings.lora_r}, alpha={settings.lora_alpha}, dropout={settings.lora_dropout}"
 
     print("=" * 70)
     print("PEFT/LoRA FINE-TUNING WITH BEFORE/AFTER COMPARISON")
@@ -145,17 +145,17 @@ def main():
     print(f"  Training samples: {num_samples}")
     print(f"  Epochs:           {num_epochs}")
     print(f"  Test samples:     {args.test_samples}")
-    print(f"  4-bit quantization: {'Enabled' if bnb_available else 'Disabled (bitsandbytes not installed)'}")
-    print(f"  LoRA rank:        16")
-    print(f"  LoRA alpha:       32")
+    print(f"  Quantization:     {quantization}")
+    print(f"  LoRA parameters:  {lora_params}")
 
     # Step 1: Load dataset
     print("\n" + "-" * 70)
-    print("STEP 1: Loading FinQA Dataset")
+    print("STEP 1: Loading Financial Q&A Dataset")
     print("-" * 70)
 
     preparator = FinancialDatasetPreparator()
-    dataset = preparator.load_finqa_dataset()
+    dataset = preparator.load_financial_qa_dataset()
+    print(f"  Dataset:          {preparator.dataset_name}")
 
     # Split into train and test
     train_data = preparator.prepare_training_data(dataset, max_samples=num_samples)
@@ -175,10 +175,6 @@ def main():
     print("STEP 2: Loading Base Model")
     print("-" * 70)
 
-    finetuner = LoRAFineTuner(
-        model_name=args.model,
-        use_4bit=True
-    )
     finetuner.setup_model()
 
     # Step 3: Evaluate BEFORE fine-tuning
@@ -237,11 +233,13 @@ def main():
     print("TRAINING DETAILS")
     print("-" * 70)
     print(f"  Base model:       {args.model}")
+    print(f"  Dataset:          {preparator.dataset_name}")
     print(f"  Training samples: {num_samples}")
+    print(f"  Test samples:     {len(test_examples)}")
     print(f"  Epochs:           {num_epochs}")
     print(f"  Training time:    {training_time:.1f}s")
-    print(f"  LoRA parameters:  r=16, alpha=32, dropout=0.1")
-    print(f"  Quantization:     4-bit (NF4)")
+    print(f"  LoRA parameters:  {lora_params}")
+    print(f"  Quantization:     {quantization}")
 
     print("\n" + "=" * 70)
     print("Fine-tuning demonstration complete!")
@@ -255,7 +253,11 @@ def main():
         f.write("PEFT/LoRA Fine-Tuning Results\n")
         f.write("=" * 50 + "\n\n")
         f.write(f"Model: {args.model}\n")
+        f.write(f"Dataset: {preparator.dataset_name}\n")
+        f.write(f"Quantization: {quantization}\n")
+        f.write(f"LoRA: {lora_params}\n")
         f.write(f"Training samples: {num_samples}\n")
+        f.write(f"Test samples: {len(test_examples)}\n")
         f.write(f"Epochs: {num_epochs}\n")
         f.write(f"Training time: {training_time:.1f}s\n\n")
         f.write("Results:\n")

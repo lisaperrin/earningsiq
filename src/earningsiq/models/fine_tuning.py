@@ -17,26 +17,31 @@ from peft import (
 from datasets import load_dataset, Dataset
 import pandas as pd
 from ..config import settings
+from ..rag.query_engine import LLMManager, auto_select_model
 from ..utils.logger import log
 
 
 class FinancialDatasetPreparator:
+    # Tried in order. financial-qa-10K holds question/answer/context triples
+    # written over 10-K filings, which matches this project's task.
+    DATASET_OPTIONS = [
+        ("virattt/financial-qa-10K", "train"),
+        ("gbharti/finance-alpaca", "train"),
+    ]
+
     def __init__(self):
-        pass
+        # Name of the dataset that was actually loaded, for reporting
+        self.dataset_name: Optional[str] = None
 
-    def load_finqa_dataset(self) -> Dataset:
+    def load_financial_qa_dataset(self) -> Dataset:
         log.info("Loading financial Q&A dataset")
-        dataset_options = [
-            ("ChanceFocus/finqa", "train"),
-            ("virattt/financial-qa-10K", "train"),
-            ("gbharti/finance-alpaca", "train"),
-        ]
 
-        for dataset_name, split in dataset_options:
+        for dataset_name, split in self.DATASET_OPTIONS:
             try:
                 log.info(f"Trying dataset: {dataset_name}")
                 dataset = load_dataset(dataset_name, split=split)
                 log.info(f"Successfully loaded {dataset_name} with {len(dataset)} samples")
+                self.dataset_name = dataset_name
                 return dataset
             except Exception as e:
                 log.warning(f"Failed to load {dataset_name}: {e}")
@@ -44,6 +49,7 @@ class FinancialDatasetPreparator:
 
         # Fallback: create a minimal financial Q&A dataset
         log.warning("Using fallback synthetic financial Q&A dataset")
+        self.dataset_name = "synthetic fallback (5 hand-written examples, repeated)"
         return self._create_fallback_dataset()
 
     def _create_fallback_dataset(self) -> Dataset:
@@ -113,10 +119,14 @@ class LoRAFineTuner:
         output_dir: Path = None,
         use_4bit: bool = True
     ):
-        self.model_name = model_name or settings.llm_model
+        model_name = model_name or settings.llm_model
+        if model_name == "auto":
+            model_name, _ = auto_select_model()
+        self.model_name = LLMManager.SUPPORTED_MODELS.get(model_name, model_name)
         self.output_dir = output_dir or settings.models_dir / "finetuned"
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.use_4bit = use_4bit
+        # 4-bit loading needs bitsandbytes and a CUDA GPU
+        self.use_4bit = use_4bit and torch.cuda.is_available() and self._is_bitsandbytes_available()
 
         self.tokenizer = None
         self.model = None
@@ -138,13 +148,10 @@ class LoRAFineTuner:
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "right"
 
-        use_4bit = self.use_4bit and self._is_bitsandbytes_available()
+        if not self.use_4bit:
+            log.info("4-bit quantization unavailable or disabled - loading in standard precision")
 
-        if self.use_4bit and not use_4bit:
-            log.warning("bitsandbytes not installed - using standard precision instead")
-            log.warning("To enable 4-bit: pip install bitsandbytes-windows")
-
-        if use_4bit:
+        if self.use_4bit:
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
@@ -156,7 +163,6 @@ class LoRAFineTuner:
                 self.model_name,
                 quantization_config=bnb_config,
                 device_map="auto",
-                trust_remote_code=True,
             )
 
             self.model = prepare_model_for_kbit_training(self.model)
@@ -166,7 +172,6 @@ class LoRAFineTuner:
                 self.model_name,
                 torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
                 device_map="auto" if torch.cuda.is_available() else None,
-                trust_remote_code=True,
             )
 
         self.peft_config = LoraConfig(
@@ -192,8 +197,13 @@ class LoRAFineTuner:
                 max_length=max_length,
                 padding="max_length",
             )
-            # For causal LM, labels are the same as input_ids
-            tokenized["labels"] = tokenized["input_ids"].copy()
+            # For causal LM the labels are the input ids. Padding positions are
+            # set to -100 so the loss ignores them; otherwise the model is
+            # mostly trained to emit the pad token.
+            tokenized["labels"] = [
+                [token if keep else -100 for token, keep in zip(ids, mask)]
+                for ids, mask in zip(tokenized["input_ids"], tokenized["attention_mask"])
+            ]
             return tokenized
 
         tokenized_dataset = dataset.map(
@@ -232,7 +242,7 @@ class LoRAFineTuner:
             save_total_limit=3,
             load_best_model_at_end=True if eval_tokenized else False,
             report_to="none",
-            fp16=True,
+            fp16=torch.cuda.is_available(),
         )
 
         trainer = Trainer(
@@ -282,12 +292,13 @@ class LoRAFineTuner:
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
 
         with torch.no_grad():
+            # Greedy decoding: the before/after comparison must not depend on
+            # sampling noise.
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=max_length,
-                temperature=0.7,
-                do_sample=True,
-                top_p=0.95,
+                do_sample=False,
+                pad_token_id=self.tokenizer.pad_token_id,
             )
 
         response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)

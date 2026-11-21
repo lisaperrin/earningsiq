@@ -80,19 +80,14 @@ class EarningsIQ:
 
         return result
 
-    def fine_tune_model(self, use_finqa: bool = True, max_samples: int = 1000):
+    def fine_tune_model(self, max_samples: int = 1000):
         log.info("Starting model fine-tuning")
 
         preparator = FinancialDatasetPreparator()
+        dataset = preparator.load_financial_qa_dataset()
+        train_dataset = preparator.prepare_training_data(dataset, max_samples)
 
-        if use_finqa:
-            dataset = preparator.load_finqa_dataset()
-            train_dataset = preparator.prepare_training_data(dataset, max_samples)
-        else:
-            log.error("Custom dataset not implemented")
-            return
-
-        finetuner = LoRAFineTuner()
+        finetuner = LoRAFineTuner(model_name=self.llm_model_name)
         finetuner.setup_model()
         finetuner.train(train_dataset, num_epochs=3, batch_size=4)
 
