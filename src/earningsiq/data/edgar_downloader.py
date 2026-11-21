@@ -17,6 +17,11 @@ class TickerInfo:
 class EdgarDownloader:
     def __init__(self, user_agent: str = None, output_dir: Path = None):
         self.user_agent = user_agent or settings.edgar_user_agent
+        if "@" not in self.user_agent:
+            raise ValueError(
+                "Set EDGAR_USER_AGENT to your e-mail address (in .env, see .env.example). "
+                "SEC EDGAR requires a contact address for automated downloads."
+            )
         self.output_dir = output_dir or settings.raw_data_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.downloader = Downloader(company_name="EarningsIQ", email_address=self.user_agent, download_folder=str(self.output_dir))

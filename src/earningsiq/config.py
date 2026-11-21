@@ -1,9 +1,18 @@
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
 class Settings(BaseSettings):
+    # .env is looked up in the project root, not the current directory
+    model_config = SettingsConfigDict(
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
     project_root: Path = Field(default_factory=lambda: Path(__file__).parent.parent.parent)
 
     data_dir: Path = Field(default_factory=lambda: Path(__file__).parent.parent.parent / "data")
@@ -13,7 +22,9 @@ class Settings(BaseSettings):
     models_dir: Path = Field(default_factory=lambda: Path(__file__).parent.parent.parent / "data" / "models")
     logs_dir: Path = Field(default_factory=lambda: Path(__file__).parent.parent.parent / "logs")
 
-    edgar_user_agent: str = "EarningsIQ research@university.edu"
+    # Contact e-mail sent to SEC EDGAR with every download. Must be set by
+    # the user (EDGAR_USER_AGENT); see .env.example.
+    edgar_user_agent: str = ""
     edgar_start_year: int = 2019
     edgar_end_year: int = 2024
     edgar_filing_types: list[str] = Field(default_factory=lambda: ["10-Q", "10-K"])
@@ -36,10 +47,6 @@ class Settings(BaseSettings):
 
     batch_size: int = 8
     num_workers: int = 4
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 settings = Settings()
