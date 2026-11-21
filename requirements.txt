@@ -20,7 +20,6 @@ accelerate>=0.26.1
 datasets>=2.16.1
 
 # Evaluation
-scikit-learn>=1.4.0
 scipy>=1.12.0
 numpy>=1.26.3
 rouge-score>=0.1.2

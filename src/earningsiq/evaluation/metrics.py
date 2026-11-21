@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import pandas as pd
 import numpy as np
 from rouge_score import rouge_scorer
-from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 from scipy.stats import pearsonr, spearmanr
 from ..utils.logger import log
 
