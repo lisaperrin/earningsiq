@@ -3,8 +3,9 @@
 ## Capstone Project Proposal
 
 **Course:** Big Data
-**Student ID:** 0256130201
 **Date:** January 18, 2026
+
+> This is the proposal as submitted at the start of the project. It describes the plan, not the outcome: the scale, tools and targets below were only partly reached. See the [README](../README.md) for what was built and measured.
 
 ---
 
@@ -221,7 +222,7 @@ User Query → Decomposer → [Agent Pool] → Synthesis → Final Answer
 
 ---
 
-## 8. Expected Deliverables
+## 7. Expected Deliverables
 
 ### GitHub Repository Structure
 ```
@@ -241,7 +242,7 @@ Big-Data-Capstone/
 
 ---
 
-## 9. References
+## 8. References
 
 - SEC EDGAR: https://www.sec.gov/edgar
 - Hugging Face Transformers: https://huggingface.co/docs/transformers/
