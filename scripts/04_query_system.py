@@ -40,7 +40,7 @@ def run_multi_agent_queries(system: EarningsIQ):
 
     queries = [
         {
-            "question": "What drove NVIDIA's revenue growth and what are the key business segments?",
+            "question": "What drove NVIDIA's revenue growth and what risks does it face?",
             "ticker": "NVDA",
             "year": 2024,
         },
