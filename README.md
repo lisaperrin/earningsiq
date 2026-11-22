@@ -10,6 +10,7 @@ Question answering over SEC 10-K and 10-Q filings with retrieval-augmented gener
 4. Answers questions with a local LLM (Qwen2.5-1.5B by default) from the retrieved chunks, filtered by ticker, section and year. Keyword rules route a question to the matching section.
 5. Reports stock price moves around each filing date (yfinance).
 6. Fine-tunes a small model with LoRA on a financial Q&A dataset.
+7. Tests whether the tone of a filing relates to the stock's reaction, in an event study over 20 companies. It does not: see [docs/PRICE_STUDY.md](docs/PRICE_STUDY.md).
 
 ## Quick start
 
