@@ -1126,6 +1126,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "chromadb" },
     { name = "datasets" },
+    { name = "hf-xet" },
     { name = "loguru" },
     { name = "lxml" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -1167,6 +1168,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
     { name = "chromadb", specifier = ">=0.4.22" },
     { name = "datasets", specifier = ">=2.16.1" },
+    { name = "hf-xet", specifier = ">=1.8.0" },
     { name = "loguru", specifier = ">=0.7.2" },
     { name = "lxml", specifier = ">=5.1.0" },
     { name = "numpy", specifier = ">=1.26.3" },
@@ -1184,7 +1186,7 @@ requires-dist = [
     { name = "sentence-transformers", specifier = ">=2.3.1" },
     { name = "torch", marker = "sys_platform != 'win32'", specifier = ">=2.2.0" },
     { name = "torch", marker = "sys_platform == 'win32'", specifier = ">=2.2.0", index = "https://download.pytorch.org/whl/cu128" },
-    { name = "transformers", specifier = ">=4.45,<5" },
+    { name = "transformers", specifier = ">=4.56,<5" },
     { name = "yfinance", specifier = ">=1.0" },
 ]
 
