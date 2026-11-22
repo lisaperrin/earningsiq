@@ -38,13 +38,6 @@ result = system.query("What are NVIDIA's main risk factors?", ticker="NVDA", yea
 print(result["answer"])
 ```
 
-## Results and limits
-
-- Evaluation is a smoke test: five hand-written questions, no labelled retrieval data. On an RTX 3060 Ti a question takes about a minute.
-- The LoRA demo (TinyLlama, 50 samples, 1 epoch) lowered ROUGE-L from 0.36 to 0.28 on 10 test examples; too small a run to conclude anything.
-- The project does not predict market reactions. It measures price changes around filing dates only.
-- The "multi-agent" mode is rule-based: keywords choose which section queries run, and their answers are joined without a further LLM call.
-
 The original course proposal is in [docs/PROPOSAL.md](docs/PROPOSAL.md).
 
 ## License
