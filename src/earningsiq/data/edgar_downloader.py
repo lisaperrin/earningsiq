@@ -75,6 +75,13 @@ class EdgarDownloader:
 
         return results
 
+    def downloaded_tickers(self) -> list[str]:
+        """Tickers that have filings on disk."""
+        filings_dir = self.output_dir / "sec-edgar-filings"
+        if not filings_dir.exists():
+            return []
+        return sorted(path.name for path in filings_dir.iterdir() if path.is_dir())
+
     def get_filing_paths(self, ticker: str, filing_type: str) -> list[Path]:
         filing_dir = self.output_dir / "sec-edgar-filings" / ticker / filing_type
         if not filing_dir.exists():
@@ -143,4 +150,11 @@ def load_sp500_tickers() -> list[str]:
 
 
 def load_sample_tickers() -> list[str]:
-    return ["AAPL", "MSFT", "GOOGL", "NVDA", "TSLA", "META", "AMZN", "JPM", "V", "WMT"]
+    """20 large US companies. The first five are the default corpus; the rest
+    spread the sample across sectors beyond technology."""
+    return [
+        "AAPL", "MSFT", "GOOGL", "NVDA", "TSLA",
+        "META", "AMZN", "JPM", "V", "WMT",
+        "JNJ", "PG", "CVX", "UNH", "HD",
+        "KO", "PFE", "CSCO", "INTC", "DIS",
+    ]
