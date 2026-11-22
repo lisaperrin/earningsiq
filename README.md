@@ -13,19 +13,19 @@ Question answering over SEC 10-K and 10-Q filings with retrieval-augmented gener
 
 ## Quick start
 
-Python 3.9+; a CUDA GPU is strongly recommended.
+Needs [uv](https://docs.astral.sh/uv/); a CUDA GPU is strongly recommended.
 
 ```bash
-pip install -e .
+uv sync
 cp .env.example .env        # set EDGAR_USER_AGENT to your e-mail address
 
-python scripts/01_download_data.py        # about 2 GB
-python scripts/02_process_documents.py
-python scripts/03_build_vector_index.py
-python scripts/04_query_system.py
-python scripts/05_price_correlation.py
-python scripts/06_evaluate_system.py --quick
-python scripts/07_finetune_model.py --quick
+uv run scripts/01_download_data.py        # about 2 GB
+uv run scripts/02_process_documents.py
+uv run scripts/03_build_vector_index.py
+uv run scripts/04_query_system.py
+uv run scripts/05_price_correlation.py
+uv run scripts/06_evaluate_system.py --quick
+uv run scripts/07_finetune_model.py --quick
 ```
 
 ```python
