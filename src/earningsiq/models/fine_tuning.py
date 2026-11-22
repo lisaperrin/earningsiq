@@ -126,7 +126,16 @@ class LoRAFineTuner:
         self.output_dir = output_dir or settings.models_dir / "finetuned"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         # 4-bit loading needs bitsandbytes and a CUDA GPU
-        self.use_4bit = use_4bit and torch.cuda.is_available() and self._is_bitsandbytes_available()
+        self.quantization_note = None
+        if not use_4bit:
+            self.quantization_note = "4-bit quantization disabled"
+        elif not torch.cuda.is_available():
+            self.quantization_note = "4-bit quantization needs a CUDA GPU, none found"
+        elif not self._is_bitsandbytes_available():
+            self.quantization_note = (
+                "4-bit quantization needs the optional bitsandbytes package, which is not installed"
+            )
+        self.use_4bit = self.quantization_note is None
 
         self.tokenizer = None
         self.model = None
@@ -149,7 +158,7 @@ class LoRAFineTuner:
         self.tokenizer.padding_side = "right"
 
         if not self.use_4bit:
-            log.info("4-bit quantization unavailable or disabled - loading in standard precision")
+            log.info(f"{self.quantization_note} - loading in standard precision")
 
         if self.use_4bit:
             bnb_config = BitsAndBytesConfig(
