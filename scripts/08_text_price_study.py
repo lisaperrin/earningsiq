@@ -87,6 +87,10 @@ def build_dataset(study_dir: Path, refresh: bool, use_llm: bool):
         # Robustness check: stock minus market, without an estimated trend
         data[f"{name}_simple"] = [simple.car(ticker, session, first_day, last_day) for ticker, session in zip(data["ticker"], data[anchor])]
 
+    # How large is the move on the event day itself, whatever its direction?
+    data["move_release"] = [study.move_size(ticker, session) for ticker, session in zip(data["ticker"], data["release_session"])]
+    data["move_filing"] = [study.move_size(ticker, session) for ticker, session in zip(data["ticker"], data["filing_session"])]
+
     paths = {}
     for accession, ticker, session in zip(data["accession"], data["ticker"], data["filing_session"]):
         abnormal = study.abnormal_returns(ticker, session, *PATH_WINDOW)
@@ -153,7 +157,15 @@ def run_analysis(data: pd.DataFrame, suffix: str = "") -> dict:
 
 
 def describe_sample(data: pd.DataFrame, text_features: list[str]) -> dict:
+    later = data[data["lag_sessions"] >= LAGGED_MIN_SESSIONS]
+
+    def move_summary(moves: pd.Series) -> dict:
+        return {"mean": float(moves.mean()), "median": float(moves.median()), "share_above_2": float((moves > 2).mean())}
+
     return {
+        # In units of the stock's ordinary daily move; about 0.8 on an ordinary day
+        "move_on_release_day": move_summary(data["move_release"]),
+        "move_on_later_filing_day": move_summary(later["move_filing"]),
         "filings": int(len(data)),
         "companies": int(data["ticker"].nunique()),
         "first_filing": str(data["filing_accepted"].min().date()),

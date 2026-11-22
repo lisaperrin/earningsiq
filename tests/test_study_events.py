@@ -64,6 +64,15 @@ def test_car_recovers_the_jump_and_removes_the_market_move():
     assert study.car("AAA", session, 2, 21) == pytest.approx(0.0, abs=0.003)
 
 
+def test_move_size_is_large_on_the_event_day_and_ordinary_otherwise():
+    prices, session = make_prices(jump=0.05)
+    study = EventStudy(prices)
+    quiet_day = prices.index[prices.index.get_loc(session) + 5]
+
+    assert study.move_size("AAA", session) > 100  # a 5% jump against 0.01% daily noise
+    assert study.move_size("AAA", quiet_day) < 4
+
+
 def test_car_is_nan_without_enough_history():
     prices, _ = make_prices()
     study = EventStudy(prices)

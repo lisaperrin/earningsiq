@@ -101,7 +101,21 @@ class EventStudy:
             return None
 
         abnormal.index = range(first_day, last_day + 1)
+        # Spread of the stock's abnormal return on ordinary days
+        abnormal.attrs["normal_std"] = float((estimation["stock"] - alpha - beta * estimation["market"]).std())
         return abnormal
+
+    def move_size(self, ticker: str, session: pd.Timestamp) -> float:
+        """Size of the event-day move in units of the stock's ordinary daily moves.
+
+        The absolute abnormal return on day 0 divided by the standard deviation
+        of abnormal returns in the estimation window. On an ordinary day this
+        averages about 0.8; NaN if unavailable.
+        """
+        abnormal = self.abnormal_returns(ticker, session, 0, 0)
+        if abnormal is None:
+            return np.nan
+        return float(abs(abnormal.iloc[0]) / abnormal.attrs["normal_std"])
 
     def car(self, ticker: str, session: pd.Timestamp, first_day: int, last_day: int) -> float:
         """Cumulative abnormal return over [first_day, last_day]; NaN if unavailable."""

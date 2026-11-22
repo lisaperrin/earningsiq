@@ -4,6 +4,7 @@ The original proposal promised a "market reaction predictor" and expected the to
 
 **Result in short**
 
+- The **earnings release is clearly visible** in the stock price; the 10-Q or 10-K that follows it days later is not.
 - The tone of a filing's MD&A section has **no measurable relation to the price reaction** on the day of the earnings release or the day of the filing. All correlations are between −0.05 and +0.07.
 - The LLM is **not better than a keyword count** at this. The proposal's target of 0.35 is not reached by any measure.
 - Filings with a more positive tone were followed by **lower** returns over the next month. This holds in the sample but weakens under a simpler return definition and **does not help prediction** on later years, so it is a lead, not a finding.
@@ -61,6 +62,17 @@ The three tone measures agree moderately (rank correlation 0.64 between keywords
 - **Prediction**: a logistic regression is fitted on all years before a test year and predicts the direction of the abnormal return in that year, for 2022, 2023 and 2024 (220 filings). It is compared with always guessing the direction that was more common before.
 
 ## Results
+
+### What is visible: the earnings release, not the filing
+
+Before asking about direction, how large is the move on the event day at all? The table gives the absolute abnormal return on the day, in units of the stock's ordinary daily move. An ordinary day averages about 0.8.
+
+| Day | Mean | Median | Share above 2 |
+|---|---|---|---|
+| Earnings release | 2.9 | 2.3 | 55% |
+| Filing, when published at least two sessions after the release | 0.7 | 0.5 | 4% |
+
+The earnings release is unmistakable in the price: on more than half of these days the stock moves more than twice its usual amount. The filing, when it comes later, is a non-event: the move is no larger than on any other day. The market has the numbers already, and the 10-Q adds nothing it reacts to.
 
 ### Association
 
