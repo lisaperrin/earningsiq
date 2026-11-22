@@ -19,7 +19,7 @@ dependencies = [
     "chromadb>=0.4.22",
     "sentence-transformers>=2.3.1",
     # LLM & fine-tuning
-    "transformers>=4.56,<5",
+    "transformers>=4.56",
     "torch>=2.2.0",
     "peft>=0.8.2",
     "accelerate>=0.26.1",
