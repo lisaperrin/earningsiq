@@ -1,8 +1,13 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+# Export .env to the process environment as well, so that variables read by
+# other libraries (HF_TOKEN for the Hugging Face Hub) take effect.
+load_dotenv(PROJECT_ROOT / ".env")
 
 
 class Settings(BaseSettings):
