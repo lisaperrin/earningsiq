@@ -98,8 +98,10 @@ class EdgarDownloader:
 
     def _extract_filing_date(self, file_path: Path) -> Optional[str]:
         try:
-            content = file_path.read_text(encoding="utf-8", errors="ignore")
-            for line in content.split("\n")[:50]:
+            # The date is in the submission header; no need to read the whole file
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                header = f.read(4000)
+            for line in header.split("\n")[:50]:
                 if "FILED AS OF DATE:" in line:
                     date_str = line.split("FILED AS OF DATE:")[1].strip()
                     return date_str[:8]
@@ -156,5 +158,5 @@ def load_sample_tickers() -> list[str]:
         "AAPL", "MSFT", "GOOGL", "NVDA", "TSLA",
         "META", "AMZN", "JPM", "V", "WMT",
         "JNJ", "PG", "CVX", "UNH", "HD",
-        "KO", "PFE", "CSCO", "INTC", "DIS",
+        "KO", "PFE", "CSCO", "ORCL", "DIS",
     ]
