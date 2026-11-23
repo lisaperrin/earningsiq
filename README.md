@@ -1,6 +1,6 @@
 # SEC Filing Analysis
 
-Question answering over SEC 10-K and 10-Q filings with retrieval-augmented generation (RAG) and small language models that run locally. Capstone project for a university Big Data course (January 2026).
+Question answering over SEC 10-K and 10-Q filings with retrieval-augmented generation (RAG) and small language models that run locally. Capstone project for the Big Data course at the University of Luxembourg (January 2026).
 
 ## What it does
 
