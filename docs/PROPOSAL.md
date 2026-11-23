@@ -1,4 +1,4 @@
-# EarningsIQ: LLM-Powered Financial Report Analysis & Market Reaction Predictor
+# LLM-Powered Financial Report Analysis & Market Reaction Predictor
 
 ## Capstone Project Proposal
 
@@ -227,7 +227,7 @@ User Query → Decomposer → [Agent Pool] → Synthesis → Final Answer
 ### GitHub Repository Structure
 ```
 Big-Data-Capstone/
-├── src/earningsiq/
+├── src/sec_filing_analysis/
 │   ├── data/          # EDGAR downloader, preprocessing
 │   ├── rag/           # Vector store, query engine
 │   ├── models/        # Fine-tuning pipeline

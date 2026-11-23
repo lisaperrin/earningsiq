@@ -39,7 +39,7 @@ result = system.query("What are NVIDIA's main risk factors?", ticker="NVDA", yea
 print(result["answer"])
 ```
 
-The original course proposal, written when the project was called EarningsIQ, is in [docs/PROPOSAL.md](docs/PROPOSAL.md).
+The original course proposal is in [docs/PROPOSAL.md](docs/PROPOSAL.md).
 
 ## License
 
