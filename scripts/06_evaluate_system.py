@@ -6,9 +6,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from earningsiq.main import EarningsIQ
-from earningsiq.evaluation.metrics import ComprehensiveEvaluator
-from earningsiq.utils.logger import log
+from sec_filing_analysis.main import FilingAnalyzer
+from sec_filing_analysis.evaluation.metrics import ComprehensiveEvaluator
+from sec_filing_analysis.utils.logger import log
 
 
 # Test queries with hand-written reference answers. Five cases are a smoke
@@ -48,11 +48,11 @@ TEST_CASES = [
 ]
 
 
-def run_evaluation(system: EarningsIQ, num_cases: int = None):
+def run_evaluation(system: FilingAnalyzer, num_cases: int = None):
     """Run comprehensive evaluation of the RAG system.
 
     Args:
-        system: The EarningsIQ system to evaluate
+        system: The system to evaluate
         num_cases: Number of test cases to run (None = all)
     """
     print("\n" + "=" * 80)
@@ -165,7 +165,7 @@ def run_evaluation(system: EarningsIQ, num_cases: int = None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate the EarningsIQ RAG system")
+    parser = argparse.ArgumentParser(description="Evaluate the RAG system")
     parser.add_argument(
         "--quick",
         action="store_true",
@@ -181,8 +181,8 @@ def main():
 
     num_cases = 2 if args.quick else args.num_cases
 
-    log.info("Initializing EarningsIQ system for evaluation...")
-    system = EarningsIQ()
+    log.info("Initializing system for evaluation...")
+    system = FilingAnalyzer()
     system.setup()
 
     stats = system.vector_store.get_collection_stats()

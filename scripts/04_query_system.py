@@ -3,11 +3,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from earningsiq.main import EarningsIQ
-from earningsiq.utils.logger import log
+from sec_filing_analysis.main import FilingAnalyzer
+from sec_filing_analysis.utils.logger import log
 
 
-def run_standard_queries(system: EarningsIQ):
+def run_standard_queries(system: FilingAnalyzer):
     """Run standard RAG queries (retrieval + LLM generation)."""
     print("\n" + "=" * 80)
     print("STANDARD RAG QUERIES")
@@ -32,7 +32,7 @@ def run_standard_queries(system: EarningsIQ):
             print(f"\nSources: {len(result['sources'])} documents retrieved")
 
 
-def run_multi_agent_queries(system: EarningsIQ):
+def run_multi_agent_queries(system: FilingAnalyzer):
     """Run multi-agent queries for complex analysis."""
     print("\n" + "=" * 80)
     print("MULTI-AGENT QUERIES")
@@ -74,8 +74,8 @@ def run_multi_agent_queries(system: EarningsIQ):
 
 
 def main():
-    log.info("Initializing EarningsIQ system...")
-    system = EarningsIQ()
+    log.info("Initializing system...")
+    system = FilingAnalyzer()
     system.setup()
 
     stats = system.vector_store.get_collection_stats()

@@ -26,10 +26,10 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from earningsiq.config import settings
-from earningsiq.study import analysis, events, features, plots
-from earningsiq.study.returns import EventStudy, download_prices
-from earningsiq.utils.logger import log
+from sec_filing_analysis.config import settings
+from sec_filing_analysis.study import analysis, events, features, plots
+from sec_filing_analysis.study.returns import EventStudy, download_prices
+from sec_filing_analysis.utils.logger import log
 
 PRICE_START, PRICE_END = "2017-10-01", "2025-03-31"
 RELEASE_START, RELEASE_END = "2018-11-01", "2025-01-31"

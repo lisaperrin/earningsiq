@@ -16,8 +16,8 @@ import argparse
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from earningsiq.data.edgar_downloader import EdgarDownloader, load_sample_tickers
-from earningsiq.utils.logger import log
+from sec_filing_analysis.data.edgar_downloader import EdgarDownloader, load_sample_tickers
+from sec_filing_analysis.utils.logger import log
 
 
 def main():

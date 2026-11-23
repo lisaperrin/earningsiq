@@ -13,7 +13,7 @@ from .evaluation.metrics import ComprehensiveEvaluator
 from .utils.logger import log
 
 
-class EarningsIQ:
+class FilingAnalyzer:
     def __init__(self, llm_model_name: Optional[str] = None):
         self.llm_model_name = llm_model_name or settings.llm_model
         self.vector_store = None
@@ -23,7 +23,7 @@ class EarningsIQ:
         self.price_fetcher = PriceDataFetcher()
 
     def setup(self):
-        log.info("Setting up EarningsIQ system")
+        log.info("Setting up system")
 
         self.vector_store = VectorStore()
         self.vector_store.create_collection()
@@ -32,7 +32,7 @@ class EarningsIQ:
         self.query_router = QueryRouter(self.rag_engine)
         self.multi_agent = MultiAgentOrchestrator(self.rag_engine, self.price_fetcher)
 
-        log.info("EarningsIQ system ready")
+        log.info("System ready")
 
     def download_data(self, tickers: list[str] = None, use_sample: bool = True):
         if use_sample and tickers is None:
@@ -128,7 +128,7 @@ class EarningsIQ:
 
 
 def run_data_pipeline(sample_only: bool = True):
-    system = EarningsIQ()
+    system = FilingAnalyzer()
 
     if sample_only:
         tickers = load_sample_tickers()[:3]
@@ -147,7 +147,7 @@ def run_data_pipeline(sample_only: bool = True):
     return system
 
 
-def run_query_demo(system: EarningsIQ):
+def run_query_demo(system: FilingAnalyzer):
     system.setup()
 
     queries = [
@@ -164,7 +164,7 @@ def run_query_demo(system: EarningsIQ):
         print("-" * 80)
 
 
-def run_multi_agent_demo(system: EarningsIQ):
+def run_multi_agent_demo(system: FilingAnalyzer):
     system.setup()
 
     result = system.multi_agent.execute_query(
@@ -180,7 +180,7 @@ def run_multi_agent_demo(system: EarningsIQ):
 
 
 if __name__ == "__main__":
-    log.info("Starting EarningsIQ")
+    log.info("Starting sec-filing-analysis")
 
     system = run_data_pipeline(sample_only=True)
 

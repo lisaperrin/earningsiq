@@ -195,4 +195,4 @@ uv run scripts/08_text_price_study.py          # filings; LLM scoring about 25 m
 uv run scripts/09_earnings_release_study.py    # releases; downloads press releases, about 20 minutes
 ```
 
-Tables are written to `data/processed/study/`, figures to `docs/figures/`. Intermediate results are cached; `--refresh` recomputes them and `--no-llm` skips the LLM measure. The code is in `src/earningsiq/study/`.
+Tables are written to `data/processed/study/`, figures to `docs/figures/`. Intermediate results are cached; `--refresh` recomputes them and `--no-llm` skips the LLM measure. The code is in `src/sec_filing_analysis/study/`.

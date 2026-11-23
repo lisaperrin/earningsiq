@@ -1,4 +1,4 @@
-from earningsiq.data.preprocessor import DocumentChunker, SecFilingParser
+from sec_filing_analysis.data.preprocessor import DocumentChunker, SecFilingParser
 
 FILLER = "Net sales grew during the period. " * 40
 

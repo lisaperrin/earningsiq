@@ -19,12 +19,12 @@ import time
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from earningsiq.models.fine_tuning import (
+from sec_filing_analysis.models.fine_tuning import (
     FinancialDatasetPreparator,
     LoRAFineTuner,
 )
-from earningsiq.config import settings
-from earningsiq.utils.logger import log
+from sec_filing_analysis.config import settings
+from sec_filing_analysis.utils.logger import log
 from rouge_score import rouge_scorer
 
 

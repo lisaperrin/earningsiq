@@ -4,7 +4,7 @@ from loguru import logger
 from ..config import settings
 
 
-def setup_logger(log_file: str = "earningsiq.log"):
+def setup_logger(log_file: str = "sec_filing_analysis.log"):
     settings.logs_dir.mkdir(parents=True, exist_ok=True)
     log_path = settings.logs_dir / log_file
 

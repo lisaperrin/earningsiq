@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from earningsiq.study.events import attach_earnings_releases
-from earningsiq.study.features import LLM_TONE_PROMPT, MDNA_SOURCE
-from earningsiq.study.fundamentals import attach_surprises, quarterly_values, reported_periods, seasonal_surprise
-from earningsiq.study.press_releases import extract_press_release
+from sec_filing_analysis.study.events import attach_earnings_releases
+from sec_filing_analysis.study.features import LLM_TONE_PROMPT, MDNA_SOURCE
+from sec_filing_analysis.study.fundamentals import attach_surprises, quarterly_values, reported_periods, seasonal_surprise
+from sec_filing_analysis.study.press_releases import extract_press_release
 
 
 def fact(start, end, value, filed):

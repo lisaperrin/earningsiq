@@ -24,7 +24,7 @@ class EdgarDownloader:
             )
         self.output_dir = output_dir or settings.raw_data_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.downloader = Downloader(company_name="EarningsIQ", email_address=self.user_agent, download_folder=str(self.output_dir))
+        self.downloader = Downloader(company_name="sec-filing-analysis", email_address=self.user_agent, download_folder=str(self.output_dir))
 
     def download_filings(
         self,

@@ -99,7 +99,7 @@ def sec_get(url: str) -> requests.Response:
 
     response = requests.get(
         url,
-        headers={"User-Agent": f"EarningsIQ {settings.edgar_user_agent}"},
+        headers={"User-Agent": f"sec-filing-analysis {settings.edgar_user_agent}"},
         timeout=60,
     )
     response.raise_for_status()

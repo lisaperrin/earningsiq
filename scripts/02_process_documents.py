@@ -4,9 +4,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from earningsiq.data.preprocessor import DocumentProcessor
-from earningsiq.config import settings
-from earningsiq.utils.logger import log
+from sec_filing_analysis.data.preprocessor import DocumentProcessor
+from sec_filing_analysis.config import settings
+from sec_filing_analysis.utils.logger import log
 
 
 def main():

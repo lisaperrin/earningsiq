@@ -29,10 +29,10 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from earningsiq.config import settings
-from earningsiq.study import analysis, fundamentals, plots, press_releases
-from earningsiq.study.returns import EventStudy
-from earningsiq.utils.logger import log
+from sec_filing_analysis.config import settings
+from sec_filing_analysis.study import analysis, fundamentals, plots, press_releases
+from sec_filing_analysis.study.returns import EventStudy
+from sec_filing_analysis.utils.logger import log
 
 NUMBER_FEATURES = ["analyst_surprise", "income_surprise", "revenue_surprise"]
 TONE_FEATURES = ["pr_kw_tone", "pr_finbert_tone", "pr_llm_tone", "d_pr_kw_tone", "d_pr_finbert_tone", "d_pr_llm_tone"]

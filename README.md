@@ -1,4 +1,4 @@
-# EarningsIQ
+# SEC Filing Analysis
 
 Question answering over SEC 10-K and 10-Q filings with retrieval-augmented generation (RAG) and small language models that run locally. Capstone project for a university Big Data course (January 2026).
 
@@ -30,16 +30,16 @@ uv run scripts/07_finetune_model.py --quick
 ```
 
 ```python
-from earningsiq.main import EarningsIQ
+from sec_filing_analysis.main import FilingAnalyzer
 
-system = EarningsIQ()
+system = FilingAnalyzer()
 system.setup()
 
 result = system.query("What are NVIDIA's main risk factors?", ticker="NVDA", year=2024)
 print(result["answer"])
 ```
 
-The original course proposal is in [docs/PROPOSAL.md](docs/PROPOSAL.md).
+The original course proposal, written when the project was called EarningsIQ, is in [docs/PROPOSAL.md](docs/PROPOSAL.md).
 
 ## License
 

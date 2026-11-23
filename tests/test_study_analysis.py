@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from earningsiq.study.analysis import (
+from sec_filing_analysis.study.analysis import (
     benjamini_hochberg,
     score_predictions,
     spearman_with_ci,
@@ -10,7 +10,7 @@ from earningsiq.study.analysis import (
     tercile_means,
     walk_forward,
 )
-from earningsiq.study.features import add_change_features, keyword_tone, split_sentences
+from sec_filing_analysis.study.features import add_change_features, keyword_tone, split_sentences
 
 
 def test_split_sentences_drops_border_fragments_tables_and_duplicates():

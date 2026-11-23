@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from earningsiq.study.events import attach_earnings_releases, event_session
-from earningsiq.study.returns import EventStudy, MARKET_TICKER
+from sec_filing_analysis.study.events import attach_earnings_releases, event_session
+from sec_filing_analysis.study.returns import EventStudy, MARKET_TICKER
 
 # Thu 2 May, Fri 3 May, Mon 6 May 2024
 SESSIONS = pd.DatetimeIndex(["2024-05-02", "2024-05-03", "2024-05-06"])
