@@ -117,6 +117,11 @@ class EventStudy:
             return np.nan
         return float(abs(abnormal.iloc[0]) / abnormal.attrs["normal_std"])
 
+    def volatility(self, ticker: str, session: pd.Timestamp, first_day: int, last_day: int) -> float:
+        """Standard deviation of daily abnormal returns over [first_day, last_day]; NaN if unavailable."""
+        abnormal = self.abnormal_returns(ticker, session, first_day, last_day)
+        return float(abnormal.std()) if abnormal is not None else np.nan
+
     def car(self, ticker: str, session: pd.Timestamp, first_day: int, last_day: int) -> float:
         """Cumulative abnormal return over [first_day, last_day]; NaN if unavailable."""
         abnormal = self.abnormal_returns(ticker, session, first_day, last_day)

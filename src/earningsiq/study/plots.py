@@ -25,6 +25,15 @@ FEATURE_LABELS = {
     "d_llm_tone": "Change in LLM tone",
     "mdna_change": "MD&A rewritten",
     "risk_change": "Risk Factors rewritten",
+    "analyst_surprise": "EPS vs. analyst estimate",
+    "income_surprise": "Net income vs. own history",
+    "revenue_surprise": "Revenue vs. own history",
+    "pr_kw_tone": "Keyword tone",
+    "pr_finbert_tone": "FinBERT tone",
+    "pr_llm_tone": "LLM tone",
+    "d_pr_kw_tone": "Change in keyword tone",
+    "d_pr_finbert_tone": "Change in FinBERT tone",
+    "d_pr_llm_tone": "Change in LLM tone",
 }
 
 TARGET_LABELS = {
@@ -32,6 +41,8 @@ TARGET_LABELS = {
     "car_filing": "Filing\ndays 0 to +1",
     "car_filing_lagged": "Filing published after\nthe release, days 0 to +1",
     "car_drift": "Month after filing\ndays +2 to +21",
+    "car_release_drift": "Month after release\ndays +2 to +21",
+    "car_announce_beyond_numbers": "Earnings release, after\nremoving the surprise",
 }
 
 
@@ -84,22 +95,22 @@ def _interval_panels(table: pd.DataFrame, panel_column: str, row_column: str, va
     _save(fig, path)
 
 
-def association_figure(association: pd.DataFrame, path: Path):
+def association_figure(association: pd.DataFrame, path: Path, title: str = "Text measures and abnormal returns"):
     _interval_panels(
         association, "target", "feature", "rho", "ci_low", "ci_high",
         TARGET_LABELS, FEATURE_LABELS, reference=0.0, reference_label="no relation",
-        title="Text measures and abnormal returns",
+        title=title,
         subtitle="Rank correlation with 95% interval. An interval that crosses the line is compatible with no relation.",
         xlabel="Spearman correlation", path=path,
     )
 
 
-def prediction_figure(prediction: pd.DataFrame, path: Path):
+def prediction_figure(prediction: pd.DataFrame, path: Path, labels: dict = None):
     table = prediction.copy()
     table["low"] = table["auc_ci"].map(lambda interval: interval[0])
     table["high"] = table["auc_ci"].map(lambda interval: interval[1])
-    labels = {"keywords": "Keyword tone only", "all text": "All text measures",
-              "past return": "Past returns only", "text + past return": "Text and past returns"}
+    labels = labels or {"keywords": "Keyword tone only", "all text": "All text measures",
+                        "past return": "Past returns only", "text + past return": "Text and past returns"}
     _interval_panels(
         table, "target", "features", "auc", "low", "high",
         TARGET_LABELS, labels, reference=0.5, reference_label="chance",
@@ -109,12 +120,13 @@ def prediction_figure(prediction: pd.DataFrame, path: Path):
     )
 
 
-def car_path_figure(data: pd.DataFrame, paths: pd.DataFrame, feature: str, high_label: str, low_label: str, path: Path):
-    """Average cumulative abnormal return around the filing, for the highest and lowest third of a feature."""
-    rank = data.groupby("ticker")[feature].rank(pct=True)
+def car_path_figure(data: pd.DataFrame, paths: pd.DataFrame, feature: str, high_label: str, low_label: str, path: Path,
+                    key: str = "accession", event: str = "filing", within_company: bool = True):
+    """Average cumulative abnormal return around an event, for the highest and lowest third of a feature."""
+    rank = data.groupby("ticker")[feature].rank(pct=True) if within_company else data[feature].rank(pct=True)
     groups = {
-        high_label: (data.loc[rank > 2 / 3, "accession"], BLUE),
-        low_label: (data.loc[rank <= 1 / 3, "accession"], ORANGE),
+        high_label: (data.loc[rank > 2 / 3, key], BLUE),
+        low_label: (data.loc[rank <= 1 / 3, key], ORANGE),
     }
 
     fig, ax = plt.subplots(figsize=(7.8, 4.4))
@@ -132,13 +144,14 @@ def car_path_figure(data: pd.DataFrame, paths: pd.DataFrame, feature: str, high_
         ax.annotate(label, xy=(cumulative.index[-1], cumulative.iloc[-1]), xytext=(6, 0), textcoords="offset points",
                     va="center", fontsize=9, color=TEXT)
 
-    ax.annotate("filing", xy=(0, ax.get_ylim()[1]), xytext=(4, -10), textcoords="offset points", fontsize=8.5, color=TEXT_SECONDARY)
-    ax.set_xlabel("Trading days relative to the filing", fontsize=9.5, color=TEXT_SECONDARY)
+    ax.annotate(event, xy=(0, ax.get_ylim()[1]), xytext=(4, -10), textcoords="offset points", fontsize=8.5, color=TEXT_SECONDARY)
+    ax.set_xlabel(f"Trading days relative to the {event}", fontsize=9.5, color=TEXT_SECONDARY)
     ax.set_ylabel("Cumulative abnormal return, %", fontsize=9.5, color=TEXT_SECONDARY)
     ax.legend(frameon=False, fontsize=9, loc="upper left", bbox_to_anchor=(0, -0.16), ncol=2, labelcolor=TEXT)
-    ax.set_title(f"Abnormal returns around the filing, by {FEATURE_LABELS.get(feature, feature)}",
+    ax.set_title(f"Abnormal returns around the {event}, by {FEATURE_LABELS.get(feature, feature)}",
                  fontsize=12.5, color=TEXT, fontweight="bold", loc="left", pad=22)
-    ax.text(0, 1.03, "Thirds are formed within each company. Day 0 is the first session that can react to the filing.",
+    thirds = "Thirds are formed within each company." if within_company else "Thirds are formed across all releases."
+    ax.text(0, 1.03, f"{thirds} Day 0 is the first session that can react to the {event}.",
             transform=ax.transAxes, fontsize=9.5, color=TEXT_SECONDARY)
     fig.tight_layout()
     _save(fig, path)

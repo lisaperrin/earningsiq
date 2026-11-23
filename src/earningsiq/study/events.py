@@ -33,17 +33,26 @@ MAX_RELEASE_LEAD = pd.Timedelta(days=50)
 MAX_RELEASE_LAG = pd.Timedelta(days=1)
 
 
-def read_acceptance_time(file_path: Path) -> Optional[pd.Timestamp]:
-    """Time EDGAR accepted a filing (US Eastern), from the submission header."""
+def read_submission_header(file_path: Path) -> dict:
+    """Acceptance time (US Eastern) and fiscal period end of a filing, from its header."""
     try:
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             header = f.read(3000)
     except OSError as e:
         log.warning(f"Cannot read {file_path}: {e}")
-        return None
+        return {"filing_accepted": None, "period_end": None}
 
-    match = re.search(r"<ACCEPTANCE-DATETIME>(\d{14})", header)
-    return pd.to_datetime(match.group(1), format="%Y%m%d%H%M%S") if match else None
+    accepted = re.search(r"<ACCEPTANCE-DATETIME>(\d{14})", header)
+    period = re.search(r"CONFORMED PERIOD OF REPORT:\s*(\d{8})", header)
+    return {
+        "filing_accepted": pd.to_datetime(accepted.group(1), format="%Y%m%d%H%M%S") if accepted else None,
+        "period_end": pd.to_datetime(period.group(1), format="%Y%m%d") if period else None,
+    }
+
+
+def read_acceptance_time(file_path: Path) -> Optional[pd.Timestamp]:
+    """Time EDGAR accepted a filing (US Eastern), from the submission header."""
+    return read_submission_header(file_path)["filing_accepted"]
 
 
 def event_session(accepted: pd.Timestamp, sessions: pd.DatetimeIndex) -> Optional[pd.Timestamp]:
@@ -73,7 +82,7 @@ def build_filing_events(filing_index: pd.DataFrame) -> pd.DataFrame:
             "filing_type": row["filing_type"],
             "accession": path.parent.name,
             "filing_date": row["filing_date"],
-            "filing_accepted": read_acceptance_time(path),
+            **read_submission_header(path),
         })
 
     events = pd.DataFrame(rows)
@@ -83,23 +92,33 @@ def build_filing_events(filing_index: pd.DataFrame) -> pd.DataFrame:
     return events.dropna(subset=["filing_accepted"]).reset_index(drop=True)
 
 
-def _sec_get(url: str) -> dict:
+def sec_get(url: str) -> requests.Response:
+    """GET from SEC EDGAR with the required contact header and rate limit."""
     if "@" not in settings.edgar_user_agent:
         raise ValueError("Set EDGAR_USER_AGENT to your e-mail address (see .env.example).")
 
     response = requests.get(
         url,
         headers={"User-Agent": f"EarningsIQ {settings.edgar_user_agent}"},
-        timeout=30,
+        timeout=60,
     )
     response.raise_for_status()
     time_module.sleep(SEC_REQUEST_PAUSE)
-    return response.json()
+    return response
+
+
+def _sec_get(url: str) -> dict:
+    return sec_get(url).json()
+
+
+def load_cik_map() -> dict[str, int]:
+    """Ticker -> SEC company number (CIK)."""
+    return {entry["ticker"]: entry["cik_str"] for entry in _sec_get(SEC_TICKER_MAP_URL).values()}
 
 
 def fetch_earnings_releases(tickers: list[str], start: str, end: str) -> pd.DataFrame:
     """Earnings releases (8-K, item 2.02) of each company from EDGAR."""
-    cik_by_ticker = {entry["ticker"]: entry["cik_str"] for entry in _sec_get(SEC_TICKER_MAP_URL).values()}
+    cik_by_ticker = load_cik_map()
     start_ts, end_ts = pd.Timestamp(start), pd.Timestamp(end)
     rows = []
 
@@ -119,9 +138,11 @@ def fetch_earnings_releases(tickers: list[str], start: str, end: str) -> pd.Data
 
         count = 0
         for block in blocks:
-            for form, items, accepted in zip(block["form"], block["items"], block["acceptanceDateTime"]):
+            for form, items, accepted, accession in zip(
+                block["form"], block["items"], block["acceptanceDateTime"], block["accessionNumber"]
+            ):
                 if form == "8-K" and EARNINGS_ITEM in items.split(","):
-                    rows.append({"ticker": ticker, "release_accepted": accepted})
+                    rows.append({"ticker": ticker, "cik": cik, "release_accession": accession, "release_accepted": accepted})
                     count += 1
         log.info(f"{ticker}: {count} earnings releases")
 
@@ -146,8 +167,11 @@ def attach_earnings_releases(events: pd.DataFrame, releases: pd.DataFrame) -> pd
             & (releases["release_accepted"] >= accepted - MAX_RELEASE_LEAD)
             & (releases["release_accepted"] <= accepted + MAX_RELEASE_LAG)
         ]
-        matched.append(candidates["release_accepted"].max() if len(candidates) else pd.NaT)
+        matched.append(candidates.loc[candidates["release_accepted"].idxmax()] if len(candidates) else None)
 
     events = events.copy()
-    events["release_accepted"] = matched
+    events["release_accepted"] = [match["release_accepted"] if match is not None else pd.NaT for match in matched]
+    for column in ("release_accession", "cik"):
+        if column in releases:
+            events[column] = [match[column] if match is not None else None for match in matched]
     return events

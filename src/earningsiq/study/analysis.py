@@ -44,6 +44,23 @@ def standardize_within(data: pd.DataFrame, columns: list[str], by: str = "ticker
     return data
 
 
+def residualize(values: pd.Series, controls: pd.DataFrame) -> pd.Series:
+    """What is left of `values` after removing the part explained by `controls`.
+
+    Works on ranks, to match the rank correlations used elsewhere: both sides
+    are ranked, a linear fit of the controls is subtracted, and the residual is
+    returned. Rows with missing data are NaN.
+    """
+    keep = values.notna() & controls.notna().all(axis=1)
+    y = rankdata(values[keep])
+    design = np.column_stack([np.ones(keep.sum())] + [rankdata(controls.loc[keep, column]) for column in controls])
+    coefficients, *_ = np.linalg.lstsq(design, y, rcond=None)
+
+    residual = pd.Series(np.nan, index=values.index)
+    residual[keep] = y - design @ coefficients
+    return residual
+
+
 def _rank_correlation(x: np.ndarray, y: np.ndarray) -> float:
     return float(np.corrcoef(rankdata(x), rankdata(y))[0, 1])
 

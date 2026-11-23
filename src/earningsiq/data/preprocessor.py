@@ -93,37 +93,40 @@ class SecFilingParser:
 
     def extract_text_from_filing(self, file_path: Path) -> str:
         try:
-            with warnings.catch_warnings():
-                # inline-XBRL filings declare themselves as XML but are HTML
-                warnings.simplefilter("ignore", XMLParsedAsHTMLWarning)
-                soup = BeautifulSoup(self._read_main_document(file_path), 'lxml')
-
-            # ix:header holds hidden inline-XBRL context definitions, not prose
-            for tag in soup(['script', 'style', 'ix:header']):
-                tag.decompose()
-
-            # Put whitespace after block elements only. Filings often split a
-            # single word across inline <span>/<font> tags ("RIS" + "K FACTORS"),
-            # so joining every text node with a space would break words apart.
-            for tag in soup.find_all(self.BLOCK_TAGS):
-                tag.append(' ')
-            for br in soup.find_all('br'):
-                br.replace_with(' ')
-
-            for table in soup.find_all('table'):
-                rows = []
-                for tr in table.find_all('tr'):
-                    cells = [' '.join(td.get_text().split()) for td in tr.find_all(['td', 'th'])]
-                    cells = [cell for cell in cells if cell]
-                    if cells:
-                        rows.append(' | '.join(cells))
-                table.replace_with(soup.new_string(' ' + ' '.join(rows) + ' '))
-
-            return re.sub(r'\s+', ' ', soup.get_text()).strip()
-
+            return self.html_to_text(self._read_main_document(file_path))
         except Exception as e:
             log.error(f"Failed to extract text from {file_path}: {e}")
             return ""
+
+    def html_to_text(self, html: bytes) -> str:
+        """Flatten an EDGAR HTML document to one line of text; table cells are joined with ' | '."""
+        with warnings.catch_warnings():
+            # inline-XBRL filings declare themselves as XML but are HTML
+            warnings.simplefilter("ignore", XMLParsedAsHTMLWarning)
+            soup = BeautifulSoup(html, 'lxml')
+
+        # ix:header holds hidden inline-XBRL context definitions, not prose
+        for tag in soup(['script', 'style', 'ix:header']):
+            tag.decompose()
+
+        # Put whitespace after block elements only. Filings often split a
+        # single word across inline <span>/<font> tags ("RIS" + "K FACTORS"),
+        # so joining every text node with a space would break words apart.
+        for tag in soup.find_all(self.BLOCK_TAGS):
+            tag.append(' ')
+        for br in soup.find_all('br'):
+            br.replace_with(' ')
+
+        for table in soup.find_all('table'):
+            rows = []
+            for tr in table.find_all('tr'):
+                cells = [' '.join(td.get_text().split()) for td in tr.find_all(['td', 'th'])]
+                cells = [cell for cell in cells if cell]
+                if cells:
+                    rows.append(' | '.join(cells))
+            table.replace_with(soup.new_string(' ' + ' '.join(rows) + ' '))
+
+        return re.sub(r'\s+', ' ', soup.get_text()).strip()
 
     def extract_sections(self, text: str, filing_type: str) -> dict[str, str]:
         sections = {}

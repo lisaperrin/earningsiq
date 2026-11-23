@@ -34,7 +34,11 @@ MIN_TONE_SENTENCES = 30
 FINBERT_MODEL = "ProsusAI/finbert"
 LLM_MODEL = LLMManager.SUPPORTED_MODELS["qwen"]
 
-LLM_TONE_PROMPT = """Below is an excerpt from the Management's Discussion and Analysis section of a company's {filing_type} report.
+# {source} names the document, so the same question can be put to filings and
+# to press releases.
+MDNA_SOURCE = "the Management's Discussion and Analysis section of a company's {filing_type} report"
+
+LLM_TONE_PROMPT = """Below is an excerpt from {source}.
 
 \"\"\"
 {text}
@@ -124,7 +128,10 @@ def finbert_tone(sentences_by_filing: dict[str, list[str]], batch_size: int = 12
 
 
 def llm_tone(chunks: pd.DataFrame, batch_size: int = 8, max_chars: int = 3500) -> dict[str, float]:
-    """Mean of P(positive) - P(negative) over a filing's MD&A chunks.
+    """Mean of P(positive) - P(negative) over a document's chunks.
+
+    `chunks` needs the columns accession, text and source (what the excerpt
+    is taken from, as it should be named in the prompt).
 
     The LLM is not asked to generate text. For each chunk the probabilities it
     assigns to "positive", "negative" and "neutral" as the first word of its
@@ -153,7 +160,7 @@ def llm_tone(chunks: pd.DataFrame, batch_size: int = 8, max_chars: int = 3500) -
 
     prompts = [
         tokenizer.apply_chat_template(
-            [{"role": "user", "content": LLM_TONE_PROMPT.format(filing_type=row.filing_type, text=row.text[:max_chars])}],
+            [{"role": "user", "content": LLM_TONE_PROMPT.format(source=row.source, text=row.text[:max_chars])}],
             tokenize=False, add_generation_prompt=True,
         )
         for row in chunks.itertuples()
@@ -246,6 +253,7 @@ def build_text_features(chunks: pd.DataFrame, events: pd.DataFrame, use_llm: boo
     chunks = chunks[chunks["accession"].isin(events["accession"])].sort_values(["accession", "section", "chunk_id"])
 
     tone_chunks = chunks[chunks["section"] == TONE_SECTION].reset_index(drop=True)
+    tone_chunks["source"] = [MDNA_SOURCE.format(filing_type=filing_type) for filing_type in tone_chunks["filing_type"]]
     sentences = {
         accession: split_sentences(group["text"].tolist())
         for accession, group in tone_chunks.groupby("accession")
